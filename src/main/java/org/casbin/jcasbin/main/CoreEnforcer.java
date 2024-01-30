@@ -69,8 +69,10 @@ public class CoreEnforcer {
         autoSave = true;
         autoBuildRoleLinks = true;
         dispatcher = null;
+        // 1、初始化aviator执行器
         aviatorEval = AviatorEvaluator.newInstance();
         initRmMap();
+        // 将所有fm.fm中的function都添加到 aviatorEval 中
         initBuiltInFunction();
     }
 
@@ -273,9 +275,12 @@ public class CoreEnforcer {
     public void loadPolicy() {
         model.clearPolicy();
         adapter.loadPolicy(model);
+        // feat: add support for priority matching
         model.sortPoliciesByPriority();
+        // feat: Implement subject Priority in jcasbin (#306)
         model.sortPoliciesBySubjectHieraichy();
 
+        // clears rmMap.
         clearRmMap();
         if (Util.enableLog) {
             model.printPolicy();
@@ -360,12 +365,14 @@ public class CoreEnforcer {
      * initRmMap initializes rmMap.
      */
     private void initRmMap() {
+        // model.model不包含g，就什么都不做
         if (!model.model.containsKey("g")) {
             return;
         }
 
         for (String ptype : model.model.get("g").keySet()) {
             if (rmMap.containsKey(ptype)) {
+                // 将 原本的 g 清空
                 rmMap.get(ptype).clear();
             } else {
                 addOrUpdateDomainManagerMatching(ptype);
@@ -387,7 +394,7 @@ public class CoreEnforcer {
     private void initBuiltInFunction() {
         for (Map.Entry<String, AviatorFunction> entry : fm.fm.entrySet()) {
             AviatorFunction function = entry.getValue();
-
+            // 先移除同名function，再添加
             if (aviatorEval.containsFunction(function.getName())) {
                 aviatorEval.removeFunction(function.getName());
             }
@@ -549,9 +556,23 @@ public class CoreEnforcer {
                 // 5.1 根据第 i 条 policy，为 aviator 填参
                 List<String> pvals = policy.get(i);
                 Map<String, Object> parameters = new HashMap<>(rvals.length + pTokens.length);
+                // 把 pvals 和 pTokens 这两个列表的每个元素组成entry，塞到parameters中
                 getPTokens(parameters, pType, pvals, pTokens);
+                // 把 rvals 和 rTokens 这两个列表的每个元素组成entry，塞到parameters中
                 getRTokens(parameters, rType, rvals);
-
+                /**
+                 * parameters:
+                 * {
+                 *     "r_sub": "org.casbin.jcasbin.main.AbacAPIUnitTest$TestEvalRule@37918c79",
+                 *     "r_act": "read",
+                 *     "r_obj": "data1",
+                 *     "p_sub_rule": "r.sub.not_exist_attribute_test == true",
+                 *     "p_act": "read",
+                 *     "p_obj": "data0"
+                 * }
+                 *
+                 * expression : eval(p_sub_rule) && r_obj == p_obj && r_act == p_act
+                 */
                 // 5.2 根据 m 的值，p的值以及 policy的值，判断返回结果
                 Object result = expression.execute(parameters);
 

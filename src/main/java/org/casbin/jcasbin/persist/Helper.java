@@ -27,6 +27,9 @@ public class Helper {
         void accept(T t, U u);
     }
 
+    /**
+     * 将 line 添加到 model.model的 policy（List）和 policyIndex（Map<line, Index>） 中
+     */
     public static void loadPolicyLine(String line, Model model) {
         if ("".equals(line)) {
             return;

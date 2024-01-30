@@ -52,6 +52,7 @@ public class Enforcer extends ManagementEnforcer {
      * @param adapter the adapter.
      */
     public Enforcer(String modelPath, Adapter adapter) {
+        // 将 PREM读到model中，返回该model
         this(newModel(modelPath, ""), adapter);
         this.modelPath = modelPath;
     }
@@ -74,6 +75,7 @@ public class Enforcer extends ManagementEnforcer {
      * @param enableLog whether to enable Casbin's log.
      */
     public Enforcer(Model m, Adapter adapter, boolean enableLog) {
+        // 将 adapter 和 model 保存在 enforcer中
         this.adapter = adapter;
         this.watcher = null;
 
@@ -83,6 +85,7 @@ public class Enforcer extends ManagementEnforcer {
         } else {
             this.enableLog(false);
         }
+        // 加载所有的 Function，赋值给本地变量：fm
         fm = FunctionMap.loadFunctionMap();
 
         initialize();

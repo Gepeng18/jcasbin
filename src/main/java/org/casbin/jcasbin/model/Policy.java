@@ -101,6 +101,7 @@ public class Policy {
      * clearPolicy clears all current policy.
      */
     public void clearPolicy() {
+        // 清理 p 和 g
         if (model.containsKey("p")) {
             for (Assertion ast : model.get("p").values()) {
                 ast.policy = new ArrayList<>();
