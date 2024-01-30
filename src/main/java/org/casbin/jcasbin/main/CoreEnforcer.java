@@ -472,6 +472,7 @@ public class CoreEnforcer {
             return new EnforceResult(true, new ArrayList<>(Collections.singletonList("The enforcer is not enabled, allow all requests")));
         }
 
+        // 1、添加内置function，有些由系统定义，有些由用户定义
         boolean compileCached = true;
         if (fm.isModify) {
             compileCached = false;
@@ -479,6 +480,7 @@ public class CoreEnforcer {
             fm.isModify = false;
         }
         Map<String, AviatorFunction> gFunctions = new HashMap<>();
+        // 2、model是否包含g，如果包含g，则加载gFunction，然后添加到aviatorEval中
         if (model.model.containsKey("g")) {
             for (Map.Entry<String, Assertion> entry : model.model.get("g").entrySet()) {
                 String key = entry.getKey();
@@ -509,6 +511,7 @@ public class CoreEnforcer {
             }
         }
 
+        // 3、根据matcher创建 aviatorExpression
         String expString;
         if (matcher == null || "".equals(matcher)) {
             expString = model.model.get("m").get(mType).value;
@@ -520,6 +523,7 @@ public class CoreEnforcer {
         // Use md5 encryption as cacheKey to prevent expString from being too long
         Expression expression = aviatorEval.compile(Util.md5(expString), expString, compileCached);
 
+        // 4、根据 effect 创建 StreamEffector
         StreamEffector streamEffector = null;
         try {
             streamEffector = this.eft.newStreamEffector(model.model.get("e").get(eType).value);
@@ -536,18 +540,23 @@ public class CoreEnforcer {
         final int policyLen = policy.size();
         int explainIndex = -1;
 
+        // 5、根据第三步创建的matcher-aviatorExpression，填补参数，最终获取result并记录
         if (policyLen != 0) {
             policyEffects = new Effect[policyLen];
             matcherResults = new float[policyLen];
 
             for (int i = 0; i < policy.size(); i++) {
+                // 5.1 根据第 i 条 policy，为 aviator 填参
                 List<String> pvals = policy.get(i);
                 Map<String, Object> parameters = new HashMap<>(rvals.length + pTokens.length);
                 getPTokens(parameters, pType, pvals, pTokens);
                 getRTokens(parameters, rType, rvals);
 
+                // 5.2 根据 m 的值，p的值以及 policy的值，判断返回结果
                 Object result = expression.execute(parameters);
 
+                // 5.3 结果的处理
+                // 大部分都会落到该范围，boolean类型
                 if (result instanceof Boolean) {
                     if (!((boolean) result)) {
                         policyEffects[i] = Effect.Indeterminate;
@@ -581,6 +590,7 @@ public class CoreEnforcer {
                     }
                 }
 
+                // 5.4 获得了本轮policy匹配的结果，交由streamEffector（effect表达式）决定是否继续，如果为true，则直接break
                 if (streamEffector != null) {
                     boolean done = streamEffector.push(policyEffects[i], i, policyLen);
                     if (done) {
@@ -592,6 +602,7 @@ public class CoreEnforcer {
                     }
                 }
             }
+            // 5.5 判断哪一条policy命中了，后面需要打印该信息的
             explainIndex = streamEffector.current().getExplainIndex();
         } else {
             policyEffects = new Effect[1];
@@ -624,6 +635,7 @@ public class CoreEnforcer {
             }
         }
 
+        // 6、结果的封装，streamEffector 和 explain
         boolean result;
 
         if (streamEffector != null && streamEffector.current() != null) {
